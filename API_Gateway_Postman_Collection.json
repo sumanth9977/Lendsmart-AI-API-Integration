@@ -1,0 +1,245 @@
+{
+  "info": {
+    "_postman_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "name": "LendSmart AI — Document Upload & Analysis API",
+    "description": "Upload documents to LendSmart AI for automated analysis.\n\n**Authentication:** All endpoints require an `X-API-Key` header. Set your key in the `api_key` collection variable.\n\nThe backend validates keys against the `EXTERNAL_API_KEYS` environment variable (comma-separated).\n\n**Flow:**\n1. Upload a document → POST /api/v1/upload (returns case_id immediately)\n2. Poll for results → GET /api/v1/cases/{case_id} (every 10 seconds until analysis is complete)\n\n**Supported file types:** PDF, DOC, DOCX, TXT, JPG, JPEG, PNG, MD",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "invoke_url",
+      "value": "Update_Invoke_URL_Provided_By_Admin",
+      "type": "string",
+      "description": "AWS API Gateway Invoke URL (US East)"
+    },
+    {
+      "key": "api_key",
+      "value": "Update Key Provided by Admin",
+      "type": "string",
+      "description": "API key for authentication. Configured via EXTERNAL_API_KEYS env var on the backend."
+    }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-Key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{api_key}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Step 1 — Upload Document",
+      "description": "Upload a document to start AI analysis. Returns immediately with a case_id.\n\n**How to use:**\n1. Go to the Body tab\n2. Click the 'file' field and select your document\n3. Click Send\n4. Copy the case_id from the response (auto-saved to variables)\n5. Run 'Step 2 — Poll Analysis' to check results",
+      "item": [
+        {
+          "name": "Upload Document (Form Data)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.case_id) {",
+                  "        pm.collectionVariables.set('case_id', jsonData.case_id);",
+                  "        console.log('Case ID saved: ' + jsonData.case_id);",
+                  "    }",
+                  "    if (jsonData.file_id) {",
+                  "        pm.collectionVariables.set('file_id', jsonData.file_id);",
+                  "        console.log('File ID saved: ' + jsonData.file_id);",
+                  "    }",
+                  "    console.log('Upload accepted. Now run Step 2 to poll for analysis results.');",
+                  "    console.log('Poll URL: ' + jsonData.poll_url);",
+                  "}",
+                  "",
+                  "pm.test('Upload accepted (202)', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "",
+                  "pm.test('Response contains case_id', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('case_id');",
+                  "});",
+                  "",
+                  "pm.test('Response contains poll_url', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('poll_url');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select a file: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{invoke_url}}/api/v1/upload",
+              "host": ["{{invoke_url}}"],
+              "path": ["api", "v1", "upload"]
+            },
+            "description": "Upload a document file for AI analysis.\n\n**Steps:**\n1. Click the 'file' field in Body tab → select your document\n2. Click Send\n3. Response returns case_id (auto-saved)\n4. Run 'Step 2 — Poll Analysis' to get results\n\nAnalysis runs in the background (1–5 minutes)."
+          },
+          "response": [
+            {
+              "name": "Upload Accepted (202)",
+              "originalRequest": {
+                "method": "POST",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {"key": "file", "type": "file", "src": "agreement.pdf"}
+                  ]
+                },
+                "url": {
+                  "raw": "{{invoke_url}}/api/v1/upload",
+                  "host": ["{{invoke_url}}"],
+                  "path": ["api", "v1", "upload"]
+                }
+              },
+              "status": "Accepted",
+              "code": 202,
+              "body": "{\n  \"status\": \"accepted\",\n  \"message\": \"File uploaded. Analysis running in background.\",\n  \"case_id\": \"BHA-20260309-abc12345\",\n  \"file_id\": \"FILE20260309120000abc\",\n  \"original_filename\": \"agreement.pdf\",\n  \"poll_url\": \"/api/v1/cases/BHA-20260309-abc12345\",\n  \"poll_interval_seconds\": 10,\n  \"case_details\": {\n    \"case_id\": \"BHA-20260309-abc12345\",\n    \"subject\": \"agreement.pdf\",\n    \"status\": \"New\",\n    \"priority\": \"Medium\",\n    \"created_at\": \"2026-03-09T10:30:00+05:30\",\n    \"file_count\": 1\n  }\n}"
+            },
+            {
+              "name": "Forbidden (403) - Invalid API Key",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{invoke_url}}/api/v1/upload",
+                  "host": ["{{invoke_url}}"],
+                  "path": ["api", "v1", "upload"]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "body": "{\n  \"message\": \"Forbidden\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Step 2 — Poll Analysis Results",
+      "description": "After uploading a document, poll this endpoint every 10 seconds to check if analysis is complete.\n\nThe case_id is auto-populated from the upload response.",
+      "item": [
+        {
+          "name": "Get Analysis Results",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    var analysis = jsonData.analysis || {};",
+                  "",
+                  "    if (analysis && Object.keys(analysis).length > 0 && !analysis.fallback_analysis) {",
+                  "        console.log('Analysis COMPLETE');",
+                  "        console.log('Document Type: ' + (analysis.document_type || 'N/A'));",
+                  "        console.log('Customer: ' + (analysis.customer_name || 'N/A'));",
+                  "        if (analysis.covenants) {",
+                  "            console.log('Covenants found: ' + analysis.covenants.length);",
+                  "        }",
+                  "        pm.test('Analysis is complete', function () {",
+                  "            pm.expect(analysis).to.have.property('document_type');",
+                  "        });",
+                  "    } else {",
+                  "        console.log('Analysis PENDING — run this request again in 10 seconds');",
+                  "        pm.test('Analysis still processing (poll again)', function () {",
+                  "            pm.expect(true).to.be.true;",
+                  "        });",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{invoke_url}}/api/v1/cases/{{case_id}}",
+              "host": ["{{invoke_url}}"],
+              "path": ["api", "v1", "cases", "{{case_id}}"]
+            },
+            "description": "Poll for analysis results.\n\nRun this after uploading a document. Repeat every 10 seconds until the console shows 'Analysis COMPLETE'.\n\nThe test script automatically checks whether analysis is ready and logs the results."
+          },
+          "response": [
+            {
+              "name": "Analysis Complete",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{invoke_url}}/api/v1/cases/{{case_id}}",
+                  "host": ["{{invoke_url}}"],
+                  "path": ["api", "v1", "cases", "{{case_id}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"case_id\": \"BHA-20260309-abc12345\",\n  \"timestamp\": \"2026-03-09T10:35:00+05:30\",\n  \"case_details\": {\n    \"case_id\": \"BHA-20260309-abc12345\",\n    \"subject\": \"agreement.pdf\",\n    \"status\": \"New\",\n    \"priority\": \"Medium\",\n    \"file_count\": 1\n  },\n  \"files\": [\n    {\n      \"file_id\": \"FILE20260309120000abc\",\n      \"original_filename\": \"agreement.pdf\",\n      \"file_size\": 1024000,\n      \"mime_type\": \"application/pdf\"\n    }\n  ],\n  \"analysis\": {\n    \"document_type\": \"credit_agreement\",\n    \"lending_intent\": \"credit_agreement\",\n    \"customer_name\": \"ACME Corporation\",\n    \"agreement_effective_date\": \"2026-01-15\",\n    \"agreement_purpose\": \"Senior Secured Revolving Credit Facility\",\n    \"parties\": [\n      {\"name\": \"ACME Corporation\", \"role\": \"Borrower\"},\n      {\"name\": \"First National Bank\", \"role\": \"Administrative Agent\"}\n    ],\n    \"key_terms\": [\n      {\"term\": \"Facility Amount\", \"description\": \"$50,000,000\"},\n      {\"term\": \"Maturity Date\", \"description\": \"January 15, 2031\"},\n      {\"term\": \"Interest Rate\", \"description\": \"SOFR + 2.50%\"}\n    ],\n    \"important_covenants\": [\n      {\n        \"term\": \"Total Leverage Ratio\",\n        \"description\": \"Total Funded Debt to EBITDA shall not exceed 3.50:1.00\",\n        \"covenant_type\": \"financial\",\n        \"severity\": \"high\"\n      }\n    ]\n  },\n  \"tab_to_display\": \"analyzer\",\n  \"events_summary\": {\n    \"total_count\": 1,\n    \"recent_events\": [\n      {\n        \"type\": \"case_created\",\n        \"description\": \"Case created via External API\",\n        \"timestamp\": \"2026-03-09T10:30:00+05:30\"\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "Analysis Pending (Poll Again)",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{invoke_url}}/api/v1/cases/{{case_id}}",
+                  "host": ["{{invoke_url}}"],
+                  "path": ["api", "v1", "cases", "{{case_id}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"case_id\": \"BHA-20260309-abc12345\",\n  \"case_details\": {\n    \"case_id\": \"BHA-20260309-abc12345\",\n    \"subject\": \"agreement.pdf\",\n    \"status\": \"New\",\n    \"priority\": \"Medium\",\n    \"file_count\": 1\n  },\n  \"files\": [\n    {\n      \"file_id\": \"FILE20260309120000abc\",\n      \"original_filename\": \"agreement.pdf\"\n    }\n  ],\n  \"analysis\": {},\n  \"tab_to_display\": \"analyzer\"\n}"
+            },
+            {
+              "name": "Case Not Found (404)",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{invoke_url}}/api/v1/cases/INVALID-ID",
+                  "host": ["{{invoke_url}}"],
+                  "path": ["api", "v1", "cases", "INVALID-ID"]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"error\": \"Case not found\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
